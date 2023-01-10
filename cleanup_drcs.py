@@ -4,35 +4,24 @@
 #  Wilhelm/ JPTV.club
 #
 #  History:
+#       1.4 (10-Jan-2022) - Converted filter to command, because Windows is weird.
 #       1.3 (02-Aug-2022) - Cleanups
 #       1.2 (14-Sep-2021) - Merged workarounds for Windows
-#  		1.1 (12-Sep-2021) - Initial version
+#  	1.1 (12-Sep-2021) - Initial version
 #
 
 import re
 import sys
 import os
+import argparse
 
-
-class STDInOutUTF8Wrapper():
-	def __init__(self):
-		self.windows = (os.name == 'nt')
-		if self.windows:
-			print('Windows detected. Switching to TextIOWrapper.', file=sys.stderr)
-			from io import TextIOWrapper
-			self.iostream = TextIOWrapper(sys.stdin.buffer, encoding='utf-8-sig')
-		else:
-			sys.stdin.reconfigure(encoding='utf-8-sig')
-
-	def readline(self):
-		return self.iostream.readline() if (self.windows) else sys.stdin.readline()
-
-	def printline(self, s):
-		return sys.stdout.buffer.write('{}\n'.format(s).encode('UTF-8')) if (self.windows) else print(s)
+__author__  = 'Wilhelm/ JPTV.club'
+__version__ = '1.4'
 
 
 # /* look up table -- automatically generated -- */
 mappings = {
+	'063C95566807D5E7B51AB706426BEDF9': '[ｽﾏﾎ]',
 	'06CB56043B9C4006BCFBE07CC831FEAF': '[ｽﾋﾟｰｶ]',
 	'0895A30733D262AB1F93A708DD58A18D': '濵',
 	'12A2C7156DA32FC972B5A451BB87B813': '｟',
@@ -63,6 +52,8 @@ mappings = {
 	'583134B86E7D90960F64C5B863196978': '➡',
 	'5BB8B7731D9473EBD7C842334DFA24F2': '｠',
 	'5C31E7978A711D0CA0469B294CB47CA6': '[ｽﾋﾟｰｶ]',
+	'5C8022286D3BC941C12E9BBC475255DD': '鷗',
+	'62985AEEBAEC69314F03FF9D3080ADA2': '鷗',
 	'650C4061157ECBA687E8934164D83A5F': '樋',
 	'668EFE227046308AE8E72C016F2EA3D7': '[ﾃｰﾌﾟ]',
 	'68FC649B4A57A6103A25DC678FCEC9F4': '[ｹｰﾀｲ]',
@@ -75,6 +66,7 @@ mappings = {
 	'74D535CA9F47D57FD78234F7019A525E': '⚟',
 	'7542BC0875D546542D2435DAA99821BB': '[ｹｰﾀｲ]',
 	'762CBC6B6F0F7132973C0F6CEB4141C6': '☎',
+	'7778FA83E2DD213935B75951A07FCCAD': '𣝣',
 	'7BFEE4DD2D8C5478F86A169EA60AA03D': '[ｹｰﾀｲ]',
 	'7CAF343B9E56DC14B775080F944E21FD': '[ｽﾋﾟｰｶ]',
 	'804A5BCDCBF1BA977C92D3D58A1CDFE1': '[ｽﾋﾟｰｶ]',
@@ -103,6 +95,7 @@ mappings = {
 	'C42450812C184AEE2AE01CC5E39AE957': '[ﾗｼﾞｵ]',
 	'C7A45CD980247B7971BF223F1A71607F': '[PC]',
 	'CEF8C8FE116047F9B3214D0DD145EA32': '[CD]',
+	'D4F0B6247BBB9102758D1F4A06506C9F': '薩',    
 	'DE7F3B9A7048C3A1D5EFE8DEE33953FD': '』',
 	'E214599903C94C532684BDF54B62DF61': '｠',
 	'E3587F9C5CF08D369D50A459F1D23723': '[TV]',
@@ -111,12 +104,13 @@ mappings = {
 	'E806D1481CFA721DA5F60413531F39BD': '[ｹｰﾀｲ]',
 	'F30294B4B8B6C05E9418B1188CE72742': '[ｲｱﾎﾝ]',
 	'FBD48A799B4F6802745508A76590E3BC': '[ｹｰﾀｲ]',
-	'FE091DA3F60998F83773AEDED2D327DA': '[ｹｰﾀｲ]',
+	'FE091DA3F60998F83773AEDED2D327DA': '[ｹｰﾀｲ]',	
 }
 # /* end look up table */
 
 
-unknowns = set()
+
+unknowns = set()  # create a "unique list"
 
 def mycallback(match):
 	myhash = (match.group(0)).upper()[3:-1]
@@ -125,23 +119,45 @@ def mycallback(match):
 		replacement = mappings[myhash]
 		if replacement[:2] == 'U+':
 			return chr(int(replacement.lstrip("U+").zfill(8), 16))
-		return replacement
-
+		return replacement # assume an already prepared string here 
+	
 	print("Unknown DRCS hash: 0x", myhash, sep='', file=sys.stderr)
 	unknowns.add(myhash)
 	return '〓'
 
 def main():
-	cached = re.compile(r'\[外:([0-9A-Fa-f]{32})\]')
-	wrapper = STDInOutUTF8Wrapper()
+	
+	ap = argparse.ArgumentParser(
+		description=('Replaces known hashed ARIB DRCS symbols in subtitles files with human-readable equivalents.'),
+		epilog='Report bugs, request features, or provide suggestions via https://github.com/TurtleWilly/arib-drcs-symbols/issues',
+	)
+	ap.add_argument('-V', '--version', action='version', help="show version number and exit", version='%(prog)s {}'.format(__version__), )
+	ap.add_argument('input', type=str, help='input filename/path (*.ass, *.srt, etc.)')
+	ap.add_argument('-o', '--output', metavar='FILENAME', type=str, help='output filename/path, if omitted it will be generated automatically')
+	user_input = ap.parse_args()
+	
+	filename_in  = os.path.realpath(os.path.expanduser(user_input.input))
+	
+	if user_input.output:
+		filename_out = os.path.realpath(os.path.expanduser(user_input.output))
+	else:
+		(root, extension) = os.path.splitext(filename_in)
+		filename_out = root + '_fixed' + extension
+	
+	cached = re.compile('\[外:([0-9A-Fa-f]{32})\]')
 
-	while True:
-		line = wrapper.readline()
-		if not line:
-			break
-		line = line.strip()
-		wrapper.printline(cached.sub(mycallback, line))
-
+	try:
+		with open(filename_in, 'rt', encoding='utf8', newline=None) as fi, open(filename_out, 'xt', encoding='utf8', newline='\n') as fo:
+			while True:
+				line = fi.readline()
+				if not line:  # end of file?
+					break
+				fo.write(cached.sub(mycallback, line.strip()) + '\n')
+	except FileExistsError as e:
+		print('Output file "{}" already exists.'.format(filename_out))
+	except OSError as e:
+	    print('Operation failed: {}'.format(e.strerror), file=sys.stderr)
+	
 	if unknowns:
 		print("All unknown DRCS hashes: ", unknowns, file=sys.stderr)
 
