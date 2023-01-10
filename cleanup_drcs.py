@@ -154,9 +154,9 @@ def main():
 					break
 				fo.write(cached.sub(mycallback, line.strip()) + '\n')
 	except FileExistsError as e:
-		print('Output file "{}" already exists.'.format(filename_out))
+		print('Output file "{}" already exists.'.format(filename_out), file=sys.stderr)
 	except OSError as e:
-	    print('Operation failed: {}'.format(e.strerror), file=sys.stderr)
+		print('Operation failed: {}'.format(e.strerror), file=sys.stderr)
 	
 	if unknowns:
 		print("All unknown DRCS hashes: ", unknowns, file=sys.stderr)
