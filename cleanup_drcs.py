@@ -8,7 +8,7 @@
 #       1.4 (10-Jan-2023) - Converted filter to command, because Windows is weird.
 #       1.3 (02-Aug-2022) - Cleanups
 #       1.2 (14-Sep-2021) - Merged workarounds for Windows
-#  	    1.1 (12-Sep-2021) - Initial version
+#       1.1 (12-Sep-2021) - Initial version
 #
 
 import re
